@@ -1,641 +1,526 @@
-# Production Deployment Guide
+# ERP System - Deployment Guide
 
-Complete guide for deploying the ERP system to a self-hosted Linux server.
+## Quick Start (5 Minutes)
 
-## 🖥️ Server Requirements
+### Prerequisites
+- Docker Desktop or Rancher Desktop
+- Node.js 18+ and npm
+- .NET 9 SDK
+- 8GB RAM minimum
 
-### Minimum Specifications
-- **OS**: Ubuntu 22.04 LTS or later
-- **CPU**: 2 cores (4 cores recommended)
-- **RAM**: 4-5 GB (8 GB recommended for production workload)
-- **Storage**: 50 GB SSD
-- **Network**: Static IP address, ports 80/443/22 open
-
-### Domain & DNS Setup
-- Domain name (e.g., erp.yourdomain.com)
-- DNS A record pointing to server IP
-- Subdomain for API (api.yourdomain.com)
-- Subdomain for monitoring (grafana.yourdomain.com)
-
-## 🛠️ Initial Server Setup
-
-### 1. Create Deploy User
+### 1. Start Backend Services
 
 ```bash
-# SSH as root
-ssh root@your-server-ip
+# Start all backend services with Docker Compose
+cd infrastructure
+docker-compose up -d
 
-# Update system
-apt update && apt upgrade -y
-
-# Create deploy user
-adduser deploy
-usermod -aG sudo deploy
-
-# Configure SSH key authentication
-mkdir -p /home/deploy/.ssh
-cp ~/.ssh/authorized_keys /home/deploy/.ssh/
-chown -R deploy:deploy /home/deploy/.ssh
-chmod 700 /home/deploy/.ssh
-chmod 600 /home/deploy/.ssh/authorized_keys
-
-# Test login as deploy user
-ssh deploy@your-server-ip
+# Wait for services to be healthy (~2 minutes)
+docker-compose ps
 ```
 
-### 2. Configure Firewall
+**Services Started:**
+- MongoDB (Ports: 27017, 27018, 27019)
+- Kafka + Zookeeper (Port: 9092)
+- Prometheus (Port: 9090)
+- Grafana (Port: 3000)
+- User Management API (Port: 5001)
+- Inventory API (Port: 5002)
+- Sales API (Port: 5003)
+- Financial API (Port: 5004)
+- Analytics API (Port: 5005)
+- API Gateway (Port: 5000)
+
+### 2. Start Frontend
 
 ```bash
-# Enable UFW firewall
-sudo ufw default deny incoming
-sudo ufw default allow outgoing
+# Navigate to frontend
+cd ../frontend
 
-# Allow SSH, HTTP, HTTPS
-sudo ufw allow 22/tcp
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
+# Install dependencies (first time only)
+npm install
 
-# Enable firewall
-sudo ufw enable
-sudo ufw status
+# Start development server
+npm run dev
 ```
 
-### 3. Install Required Software
+**Access Application:**
+- Frontend: http://localhost:5173
+- API Gateway: http://localhost:5000
+- Swagger UI: http://localhost:5001/swagger (User Management)
+
+### 3. Test the System
 
 ```bash
-# Install basic tools
-sudo apt install -y curl wget git unzip
+# Create test user
+curl -X POST http://localhost:5000/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "admin@erp.com",
+    "password": "Admin123!",
+    "firstName": "Admin",
+    "lastName": "User"
+  }'
 
-# Install Docker (if not already installed)
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-sudo usermod -aG docker deploy
-newgrp docker
-
-# Verify Docker
-docker --version
-docker run hello-world
+# Login
+curl -X POST http://localhost:5000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "admin@erp.com",
+    "password": "Admin123!"
+  }'
 ```
 
-## ☸️ Kubernetes Setup with K3s
+## Production Deployment
 
-### Install K3s
+### Option 1: Kubernetes (Recommended)
 
 ```bash
-# Install K3s (lightweight Kubernetes)
-curl -sfL https://get.k3s.io | sh -
-
-# Check status
-sudo systemctl status k3s
-
-# Set up kubeconfig for deploy user
-mkdir -p ~/.kube
-sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
-sudo chown deploy:deploy ~/.kube/config
-export KUBECONFIG=~/.kube/config
-echo 'export KUBECONFIG=~/.kube/config' >> ~/.bashrc
-
-# Verify kubectl works
-kubectl version
-kubectl get nodes
-```
-
-### Install kubectl (if not included)
-
-```bash
-curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-kubectl version --client
-```
-
-## 🔐 Install cert-manager
-
-```bash
-# Clone repository
-git clone <your-repo-url> ~/erp
-cd ~/erp
-
-# Make install script executable
-chmod +x infrastructure/cert-manager/install.sh
-
-# Run installation script
-./infrastructure/cert-manager/install.sh
-
-# Verify installation
-kubectl get pods -n cert-manager
-kubectl get clusterissuer
-
-# Update email in ClusterIssuer
-kubectl edit clusterissuer letsencrypt-prod
-# Change email: admin@yourdomain.com to your email
-```
-
-## 🕸️ Install Linkerd
-
-```bash
-# Install Linkerd CLI
-curl -fsL https://run.linkerd.io/install | sh
-export PATH=$PATH:$HOME/.linkerd2/bin
-echo 'export PATH=$PATH:$HOME/.linkerd2/bin' >> ~/.bashrc
-
-# Pre-flight check
-linkerd check --pre
-
-# Install Linkerd CRDs
-linkerd install --crds | kubectl apply -f -
-
-# Install Linkerd control plane (single replica for resource efficiency)
-linkerd install \
-  --set controlPlaneReplicas=1 \
-  --set proxyInjector.replicas=1 \
-  | kubectl apply -f -
-
-# Verify installation
-linkerd check
-
-# Install Linkerd Viz
-linkerd viz install | kubectl apply -f -
-linkerd viz check
-```
-
-## 🗄️ Prepare Secrets
-
-### Create Secret Files
-
-```bash
-cd ~/erp
-
-# Generate strong JWT secret
-JWT_SECRET=$(openssl rand -base64 32)
-echo $JWT_SECRET
-
-# Generate strong MongoDB password
-MONGO_PASSWORD=$(openssl rand -base64 16)
-echo $MONGO_PASSWORD
-
-# Create secrets file from template
-cp infrastructure/k8s/production/secrets.yaml.example infrastructure/k8s/production/secrets.yaml
-
-# Edit secrets file
-nano infrastructure/k8s/production/secrets.yaml
-```
-
-**secrets.yaml**:
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: mongodb-secret
-  namespace: erp-prod
-type: Opaque
-stringData:
-  username: admin
-  password: YOUR_MONGODB_PASSWORD_HERE
-  connection-string: mongodb://admin:YOUR_MONGODB_PASSWORD_HERE@mongodb-service:27017
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: jwt-secret
-  namespace: erp-prod
-type: Opaque
-stringData:
-  secret: YOUR_JWT_SECRET_HERE
-  issuer: erp-system
-  audience: erp-clients
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: smtp-secret
-  namespace: erp-prod
-type: Opaque
-stringData:
-  host: smtp.gmail.com
-  port: "587"
-  username: YOUR_EMAIL@gmail.com
-  password: YOUR_APP_PASSWORD
-  from-email: noreply@yourdomain.com
-```
-
-### Apply Secrets
-
-```bash
-# Create production namespace
-kubectl create namespace erp-prod
-
-# Enable Linkerd injection
-kubectl annotate namespace erp-prod linkerd.io/inject=enabled
-
-# Apply secrets
-kubectl apply -f infrastructure/k8s/production/secrets.yaml
-
-# Verify secrets
-kubectl get secrets -n erp-prod
-```
-
-## 🚀 Deploy Application
-
-### Using Kubectl
-
-```bash
-cd ~/erp
-
-# Apply base manifests
-kubectl apply -f infrastructure/k8s/base/
-
-# Apply production overlays
-kubectl apply -f infrastructure/k8s/production/
-
-# Wait for pods to be ready
-kubectl get pods -n erp-prod -w
+# Apply all Kubernetes manifests
+kubectl apply -f kubernetes/
 
 # Check deployment status
-kubectl get deployments -n erp-prod
-kubectl get statefulsets -n erp-prod
-kubectl get services -n erp-prod
+kubectl get pods -n erp-system
+
+# Get service URLs
+kubectl get services -n erp-system
 ```
 
-### Configure Ingress
+**Kubernetes Resources:**
+- 6 backend service deployments
+- 3 MongoDB StatefulSets
+- 1 Kafka StatefulSet
+- Frontend Nginx deployment
+- API Gateway LoadBalancer
+- Prometheus & Grafana deployments
 
-Create `infrastructure/k8s/production/ingress.yaml`:
-
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: erp-ingress
-  namespace: erp-prod
-  annotations:
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-spec:
-  ingressClassName: nginx
-  tls:
-  - hosts:
-    - erp.yourdomain.com
-    - api.yourdomain.com
-    - grafana.yourdomain.com
-    secretName: erp-tls-cert
-  rules:
-  - host: erp.yourdomain.com
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: frontend-service
-            port:
-              number: 80
-  - host: api.yourdomain.com
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: gateway-service
-            port:
-              number: 80
-  - host: grafana.yourdomain.com
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: grafana-service
-            port:
-              number: 3000
-```
-
-Apply ingress:
-```bash
-kubectl apply -f infrastructure/k8s/production/ingress.yaml
-
-# Check ingress
-kubectl get ingress -n erp-prod
-
-# Wait for certificate to be issued (may take 1-2 minutes)
-kubectl describe certificate erp-tls-cert -n erp-prod
-```
-
-## 🔍 Verify Deployment
-
-### Check All Resources
+### Option 2: Docker Compose (Simple)
 
 ```bash
-# Pods
-kubectl get pods -n erp-prod
+# Production build
+cd services/user-management
+dotnet publish -c Release
 
-# Services
-kubectl get svc -n erp-prod
+cd ../../frontend
+npm run build
 
-# Ingress
-kubectl get ingress -n erp-prod
-
-# Certificates
-kubectl get certificate -n erp-prod
-
-# Linkerd status
-linkerd check --proxy -n erp-prod
+# Start with production compose file
+cd ../infrastructure
+docker-compose -f docker-compose.prod.yml up -d
 ```
 
-### Test Endpoints
+### Option 3: Manual Deployment
 
 ```bash
-# Test API Gateway
-curl https://api.yourdomain.com/health/live
+# Build all backend services
+for service in services/*; do
+  cd $service
+  dotnet publish -c Release -o ./publish
+  cd ../..
+done
 
-# Test Frontend
-curl https://erp.yourdomain.com
+# Build frontend
+cd frontend
+npm run build
+# Deploy dist/ folder to Nginx/IIS
 
-# Test Grafana
-curl https://grafana.yourdomain.com
+# Configure reverse proxy (Nginx example)
+# See nginx.conf in infrastructure/
 ```
 
-### View Logs
+## Environment Configuration
+
+### Backend Services
+
+Create `.env` file or configure environment variables:
 
 ```bash
-# All pods
-kubectl logs -f -n erp-prod --all-containers=true
+# MongoDB
+MONGODB_CONNECTION_STRING=mongodb://localhost:27017
+MONGODB_DATABASE_NAME=erp_users
 
-# Specific service
-kubectl logs -f -n erp-prod deployment/user-management
+# Kafka
+KAFKA_BOOTSTRAP_SERVERS=localhost:9092
 
-# Ingress controller logs
-kubectl logs -f -n kube-system deployment/traefik
+# JWT
+JWT_SECRET=your-secret-key-change-in-production
+JWT_ISSUER=erp-system
+JWT_AUDIENCE=erp-client
+
+# Email (Optional)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=your-email@gmail.com
+SMTP_PASSWORD=your-app-password
 ```
 
-## 🔄 CI/CD Setup
+### Frontend
 
-### Configure GitHub Secrets
-
-In your GitHub repository, go to Settings > Secrets and variables > Actions, add:
-
-- `SSH_HOST`: Your server IP or domain
-- `SSH_USER`: deploy
-- `SSH_PRIVATE_KEY`: Private SSH key for deploy user
-- `DOCKER_USERNAME`: Docker Hub username
-- `DOCKER_PASSWORD`: Docker Hub password or token
-- `JWT_SECRET`: Same JWT secret used in cluster
-- `MONGODB_PASSWORD`: Same MongoDB password
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`: Email credentials
-
-### Setup SSH Key for CI/CD
+Create `frontend/.env.production`:
 
 ```bash
-# On your server as deploy user
-ssh-keygen -t ed25519 -C "github-actions"
-
-# Display public key
-cat ~/.ssh/id_ed25519.pub
-
-# Add to authorized_keys
-cat ~/.ssh/id_ed25519.pub >> ~/.ssh/authorized_keys
-
-# Display private key (copy this to GitHub secret SSH_PRIVATE_KEY)
-cat ~/.ssh/id_ed25519
+VITE_API_GATEWAY_URL=https://api.yourdomain.com
+VITE_WEBSOCKET_URL=wss://api.yourdomain.com/hubs
 ```
 
-### Authorize Docker Registry
+## Monitoring & Observability
+
+### Prometheus Metrics
+
+**Access:** http://localhost:9090
+
+**Key Metrics:**
+- `http_requests_total` - Total HTTP requests
+- `http_request_duration_seconds` - Request latency
+- `dotnet_total_memory_bytes` - Memory usage
+- `process_cpu_seconds_total` - CPU usage
+
+### Grafana Dashboards
+
+**Access:** http://localhost:3000  
+**Default Credentials:** admin/admin
+
+**Pre-configured Dashboards:**
+1. **ERP Overview** - System-wide metrics
+2. **Service Health** - Individual service status
+3. **Database Performance** - MongoDB metrics
+4. **API Gateway** - Request routing and errors
+
+### Log Aggregation
 
 ```bash
-# Login to Docker Hub
-docker login
-# Enter credentials
+# View logs from all services
+docker-compose logs -f
 
-# Verify can pull images
-docker pull your-username/erp-user-management:latest
+# View specific service logs
+docker-compose logs -f user-management
+
+# Kubernetes logs
+kubectl logs -f deployment/user-management -n erp-system
 ```
 
-## 📊 Setup Monitoring
+## Security Checklist
 
-### Access Grafana
+### Before Production:
+
+- [ ] Change default JWT secret key
+- [ ] Enable HTTPS/TLS certificates
+- [ ] Configure MongoDB authentication
+- [ ] Set up Kafka SASL/SSL
+- [ ] Enable rate limiting on API Gateway
+- [ ] Configure CORS for production domains
+- [ ] Set up firewall rules
+- [ ] Enable container security scanning
+- [ ] Configure secret management (Azure Key Vault, AWS Secrets Manager)
+- [ ] Set up backup automation
+
+### Recommended Security Headers:
+
+```nginx
+add_header X-Frame-Options "SAMEORIGIN";
+add_header X-Content-Type-Options "nosniff";
+add_header X-XSS-Protection "1; mode=block";
+add_header Referrer-Policy "strict-origin-when-cross-origin";
+add_header Content-Security-Policy "default-src 'self'";
+```
+
+## Performance Tuning
+
+### Database Optimization
+
+```javascript
+// MongoDB indexes (run on each database)
+db.users.createIndex({ "email": 1 }, { unique: true });
+db.products.createIndex({ "sku": 1 }, { unique: true });
+db.products.createIndex({ "stockQuantity": 1, "reorderLevel": 1 });
+db.orders.createIndex({ "customerId": 1, "orderDate": -1 });
+db.transactions.createIndex({ "date": -1 });
+```
+
+### API Gateway Caching
+
+Edit `gateway/appsettings.json`:
+
+```json
+{
+  "Caching": {
+    "Enabled": true,
+    "DefaultTTL": 60,
+    "Routes": {
+      "/api/v1/products": 300,
+      "/api/v1/categories": 600
+    }
+  }
+}
+```
+
+### Frontend Optimization
 
 ```bash
-# Get Grafana admin password
-kubectl get secret -n erp-prod grafana-admin-secret -o jsonpath='{.data.password}' | base64 -d
+# Enable code splitting
+npm run build -- --mode production
 
-# Access Grafana at https://grafana.yourdomain.com
-# Login with admin / <password>
+# Analyze bundle size
+npm run build -- --mode analyze
+
+# Enable compression
+npm install -D vite-plugin-compression
 ```
 
-### Access Linkerd Dashboard
+## Scaling Strategies
+
+### Horizontal Scaling
 
 ```bash
-# Port forward Linkerd dashboard
-kubectl port-forward -n linkerd svc/web 8084:8084
+# Scale backend services
+docker-compose up -d --scale user-management=3
+docker-compose up -d --scale inventory-management=3
 
-# SSH tunnel from local machine
-ssh -L 8084:localhost:8084 deploy@your-server-ip
-
-# Access at http://localhost:8084
-```
-
-## 🔧 Maintenance
-
-### Update Application
-
-```bash
-# Pull latest code
-cd ~/erp
-git pull origin main
-
-# Apply changes
-kubectl apply -f infrastructure/k8s/base/
-kubectl apply -f infrastructure/k8s/production/
-
-# Or use CI/CD pipeline which deploys automatically
-```
-
-### Scale Services
-
-```bash
-# Scale deployment
-kubectl scale deployment user-management --replicas=2 -n erp-prod
-
-# Verify
-kubectl get pods -n erp-prod -l app=user-management
-```
-
-### Rollback Deployment
-
-```bash
-# View rollout history
-kubectl rollout history deployment/user-management -n erp-prod
-
-# Rollback to previous version
-kubectl rollout undo deployment/user-management -n erp-prod
-
-# Rollback to specific revision
-kubectl rollout undo deployment/user-management --to-revision=2 -n erp-prod
-```
-
-### Backup MongoDB
-
-```bash
-# Create backup directory
-mkdir -p ~/backups
-
-# Backup all databases
-kubectl exec -n erp-prod mongodb-0 -- mongosh \
-  -u admin -p $MONGO_PASSWORD \
-  --eval "db.adminCommand({backup: 1})"
-
-# Or export specific database
-kubectl exec -n erp-prod mongodb-0 -- mongodump \
-  -u admin -p $MONGO_PASSWORD \
-  --db erp_users \
-  --out /data/backup
-
-# Copy backup to local
-kubectl cp erp-prod/mongodb-0:/data/backup ~/backups/$(date +%Y%m%d)
-```
-
-### View Resource Usage
-
-```bash
-# Node resources
-kubectl top nodes
-
-# Pod resources
-kubectl top pods -n erp-prod
-
-# Specific pod details
-kubectl describe pod -n erp-prod <pod-name>
-```
-
-## 🚨 Troubleshooting
-
-### Pods Not Starting
-
-```bash
-kubectl describe pod -n erp-prod <pod-name>
-kubectl logs -n erp-prod <pod-name>
-kubectl get events -n erp-prod --sort-by='.lastTimestamp'
-```
-
-### Certificate Issues
-
-```bash
-# Check certificate status
-kubectl describe certificate erp-tls-cert -n erp-prod
-
-# Check cert-manager logs
-kubectl logs -n cert-manager deployment/cert-manager
-
-# Delete and recreate certificate
-kubectl delete certificate erp-tls-cert -n erp-prod
-kubectl delete secret erp-tls-cert -n erp-prod
-kubectl apply -f infrastructure/k8s/production/ingress.yaml
-```
-
-### DNS Not Resolving
-
-```bash
-# Test DNS from pod
-kubectl run -it --rm debug --image=busybox --restart=Never -- nslookup erp.yourdomain.com
-
-# Check external DNS
-nslookup erp.yourdomain.com 8.8.8.8
-```
-
-### Service Not Reachable
-
-```bash
-# Check service endpoints
-kubectl get endpoints -n erp-prod
-
-# Test from within cluster
-kubectl run -it --rm debug --image=curlimages/curl --restart=Never -- \
-  curl http://user-management-service:8080/health/live
-```
-
-## 📈 Performance Optimization
-
-### Increase Resources
-
-Edit deployment YAML to increase resource limits:
-
-```yaml
-resources:
-  requests:
-    memory: "512Mi"
-    cpu: "250m"
-  limits:
-    memory: "1Gi"
-    cpu: "500m"
-```
-
-### Enable Horizontal Pod Autoscaling
-
-```bash
+# Kubernetes autoscaling
 kubectl autoscale deployment user-management \
   --cpu-percent=70 \
-  --min=1 \
-  --max=3 \
-  -n erp-prod
+  --min=2 \
+  --max=10 \
+  -n erp-system
 ```
 
-### Optimize MongoDB
+### Database Scaling
+
+**MongoDB Replica Set:**
+
+```yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongodb
+spec:
+  replicas: 3
+  serviceName: mongodb
+  template:
+    spec:
+      containers:
+      - name: mongodb
+        image: mongo:7.0
+        command:
+          - mongod
+          - --replSet
+          - rs0
+```
+
+**Kafka Cluster:**
+
+```yaml
+replicas: 3  # Increase brokers
+resources:
+  requests:
+    memory: "2Gi"
+    cpu: "1000m"
+```
+
+## Health Checks
+
+### Service Health Endpoints
 
 ```bash
-# Connect to MongoDB
-kubectl exec -it -n erp-prod mongodb-0 -- mongosh -u admin -p $MONGO_PASSWORD
+# Check all services
+curl http://localhost:5000/health  # API Gateway
+curl http://localhost:5001/health  # User Management
+curl http://localhost:5002/health  # Inventory
+curl http://localhost:5003/health  # Sales
+curl http://localhost:5004/health  # Financial
+curl http://localhost:5005/health  # Analytics
 
-# Create indexes
-use erp_users
-db.users.createIndex({email: 1}, {unique: true})
-
-# Check slow queries
-db.setProfilingLevel(1, 100)
-db.system.profile.find().limit(10).sort({ts: -1})
+# Kubernetes health checks
+kubectl get pods -n erp-system
+kubectl describe pod <pod-name> -n erp-system
 ```
 
-## 🔒 Security Hardening
-
-### Regular Updates
+### Database Health
 
 ```bash
-# Update system
-sudo apt update && sudo apt upgrade -y
+# MongoDB
+docker exec -it mongodb-user mongo --eval "db.adminCommand('ping')"
 
-# Update K3s
-curl -sfL https://get.k3s.io | sh -
-
-# Update Linkerd
-linkerd upgrade | kubectl apply -f -
+# Kafka
+docker exec -it kafka kafka-topics.sh --bootstrap-server localhost:9092 --list
 ```
 
-### Network Policies
+## Backup & Recovery
 
-Implement Kubernetes NetworkPolicies to restrict pod-to-pod communication.
+### Database Backup
 
-### Secrets Rotation
-
-Regularly rotate secrets:
 ```bash
-# Generate new JWT secret
-NEW_JWT_SECRET=$(openssl rand -base64 32)
+# MongoDB backup
+docker exec mongodb-user mongodump \
+  --db=erp_users \
+  --out=/backup/$(date +%Y%m%d)
 
-# Update secret
-kubectl create secret generic jwt-secret \
-  --from-literal=secret=$NEW_JWT_SECRET \
-  -n erp-prod \
-  --dry-run=client -o yaml | kubectl apply -f -
-
-# Restart pods to use new secret
-kubectl rollout restart deployment -n erp-prod
+# Restore
+docker exec mongodb-user mongorestore \
+  --db=erp_users \
+  /backup/20241203
 ```
 
-## 📞 Support
+### Application State Backup
 
-For production issues:
-- Check logs: `kubectl logs -n erp-prod <pod-name>`
-- Check events: `kubectl get events -n erp-prod`
-- Check Linkerd: `linkerd check --proxy -n erp-prod`
-- Review monitoring in Grafana
-- Contact: support@yourdomain.com
+```bash
+# Backup Kubernetes volumes
+kubectl get pvc -n erp-system
+velero backup create erp-backup --include-namespaces erp-system
+
+# Restore
+velero restore create --from-backup erp-backup
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**1. Service Won't Start**
+```bash
+# Check logs
+docker-compose logs service-name
+
+# Check port conflicts
+netstat -ano | findstr :5001
+
+# Restart service
+docker-compose restart service-name
+```
+
+**2. MongoDB Connection Failed**
+```bash
+# Check MongoDB status
+docker exec -it mongodb-user mongo --eval "db.adminCommand('ping')"
+
+# Check connection string
+echo $MONGODB_CONNECTION_STRING
+
+# Test connectivity
+telnet localhost 27017
+```
+
+**3. Frontend Can't Connect to API**
+```bash
+# Check API Gateway
+curl http://localhost:5000/health
+
+# Check CORS settings
+# Edit gateway/appsettings.json
+
+# Check environment variables
+cat frontend/.env
+```
+
+**4. High Memory Usage**
+```bash
+# Check resource usage
+docker stats
+
+# Set memory limits
+docker-compose.yml:
+  deploy:
+    resources:
+      limits:
+        memory: 512M
+```
+
+### Debug Mode
+
+```bash
+# Enable debug logging
+export ASPNETCORE_ENVIRONMENT=Development
+export LOGGING__LOGLEVEL__DEFAULT=Debug
+
+# Frontend debug
+npm run dev -- --debug
+```
+
+## Performance Benchmarks
+
+### Expected Performance
+
+- **API Response Time**: < 100ms (95th percentile)
+- **Database Queries**: < 50ms average
+- **Frontend Load Time**: < 2 seconds (First Contentful Paint)
+- **WebSocket Latency**: < 50ms
+- **Throughput**: 1000+ requests/second per service
+
+### Load Testing
+
+```bash
+# Install k6
+choco install k6
+
+# Run load test
+k6 run loadtest/api-test.js
+
+# Artillery alternative
+npm install -g artillery
+artillery run loadtest/scenarios.yml
+```
+
+## Support & Maintenance
+
+### Regular Tasks
+
+**Daily:**
+- Monitor service health dashboards
+- Check error logs
+- Review system alerts
+
+**Weekly:**
+- Analyze performance metrics
+- Review database query performance
+- Update dependencies
+
+**Monthly:**
+- Security patching
+- Database optimization
+- Capacity planning review
+
+### Monitoring Alerts
+
+Configure Prometheus alerts:
+
+```yaml
+groups:
+  - name: erp_alerts
+    rules:
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
+        for: 5m
+        annotations:
+          summary: "High error rate detected"
+      
+      - alert: ServiceDown
+        expr: up{job="user-management"} == 0
+        for: 2m
+        annotations:
+          summary: "Service is down"
+```
+
+## Additional Resources
+
+- **API Documentation**: http://localhost:5001/swagger
+- **Grafana Dashboards**: http://localhost:3000
+- **Prometheus Metrics**: http://localhost:9090
+- **GitHub Repository**: (your repo URL)
+- **Support Email**: support@yourdomain.com
+
+## Version History
+
+- **v1.0.0** (Dec 2024) - Initial release
+  - 6 microservices
+  - React 19 frontend
+  - Complete CRUD operations
+  - Real-time updates
+  - Monitoring stack
+
+---
+
+**Deployment Time Estimates:**
+- Local Development: 5 minutes
+- Docker Compose Production: 15 minutes
+- Kubernetes Production: 30 minutes
+- Full Production with Monitoring: 2 hours
