@@ -49,7 +49,7 @@ services:
 
   # User Management Service
   user-management:
-    image: erp_demo-user-management:latest
+    image: ghcr.io/jctroth/erp-demo-user-management:latest
     container_name: erp-user-management
     environment:
       ASPNETCORE_ENVIRONMENT: Production
@@ -72,7 +72,7 @@ services:
 
   # Inventory Service
   inventory:
-    image: erp_demo-inventory:latest
+    image: ghcr.io/jctroth/erp-demo-inventory:latest
     container_name: erp-inventory
     environment:
       ASPNETCORE_ENVIRONMENT: Production
@@ -92,7 +92,7 @@ services:
 
   # Sales Service
   sales:
-    image: erp_demo-sales:latest
+    image: ghcr.io/jctroth/erp-demo-sales:latest
     container_name: erp-sales
     environment:
       ASPNETCORE_ENVIRONMENT: Production
@@ -110,7 +110,7 @@ services:
 
   # Financial Service
   financial:
-    image: erp_demo-financial:latest
+    image: ghcr.io/jctroth/erp-demo-financial:latest
     container_name: erp-financial
     environment:
       ASPNETCORE_ENVIRONMENT: Production
@@ -128,7 +128,7 @@ services:
 
   # Dashboard Service
   dashboard:
-    image: erp_demo-dashboard:latest
+    image: ghcr.io/jctroth/erp-demo-dashboard:latest
     container_name: erp-dashboard
     environment:
       ASPNETCORE_ENVIRONMENT: Production
@@ -146,7 +146,7 @@ services:
 
   # API Gateway
   gateway:
-    image: erp_demo-gateway:latest
+    image: ghcr.io/jctroth/erp-demo-gateway:latest
     container_name: erp-gateway
     environment:
       ASPNETCORE_ENVIRONMENT: Production
@@ -169,7 +169,7 @@ services:
 
   # Frontend
   frontend:
-    image: erp_demo-frontend:latest
+    image: ghcr.io/jctroth/erp-demo-frontend:latest
     container_name: erp-frontend
     ports:
       - "8081:80"

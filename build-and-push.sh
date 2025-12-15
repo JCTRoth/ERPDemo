@@ -1,15 +1,15 @@
 #!/bin/bash
 
-# Build and Push Docker Images to Docker Hub
-# This script builds images for services that have Dockerfiles and pushes them to Docker Hub.
+# Build and Push Docker Images to GitHub Container Registry (GHCR)
+# This script builds images for services that have Dockerfiles and pushes them to GHCR.
 
 set -e
 
 # ========================================
 # Configuration - Update these variables
 # ========================================
-DOCKER_USERNAME="${DOCKER_USERNAME:-your-dockerhub-username}"  # Replace with your Docker Hub username
-DOCKER_REPO_PREFIX="${DOCKER_REPO_PREFIX:-erp}"  # Prefix for repo names, e.g., 'erp' -> username/erp-user-management
+GITHUB_USERNAME="${GITHUB_USERNAME:-jctroth}"  # Your GitHub username
+GITHUB_REPO="${GITHUB_REPO:-erp-demo}"  # Your GitHub repository name
 TAG="${TAG:-latest}"  # Image tag, e.g., 'latest', 'v1.0', or use git commit hash
 
 # Services to build (from docker-compose.yml build contexts)
@@ -27,22 +27,24 @@ SERVICES=(
 # Functions
 # ========================================
 
-# Login to Docker Hub
+# Login to GitHub Container Registry
 docker_login() {
-    echo "Logging in to Docker Hub..."
-    if [ -z "$DOCKER_PASSWORD" ]; then
-        echo "DOCKER_PASSWORD environment variable not set."
-        echo "Set it with: export DOCKER_PASSWORD='your-password'"
+    echo "Logging in to GitHub Container Registry..."
+    if [ -z "$GITHUB_TOKEN" ]; then
+        echo "GITHUB_TOKEN environment variable not set."
+        echo "Set it with: export GITHUB_TOKEN='your-github-personal-access-token'"
+        echo "Create a token at: https://github.com/settings/tokens"
+        echo "Required scopes: write:packages, read:packages"
         exit 1
     fi
-    echo "$DOCKER_PASSWORD" | docker login --username "$DOCKER_USERNAME" --password-stdin
-    echo "Logged in to Docker Hub as $DOCKER_USERNAME"
+    echo "$GITHUB_TOKEN" | docker login ghcr.io --username "$GITHUB_USERNAME" --password-stdin
+    echo "Logged in to GHCR as $GITHUB_USERNAME"
 }
 
 # Build and push a single service
 build_and_push() {
     local service=$1
-    local image_name="$DOCKER_USERNAME/$DOCKER_REPO_PREFIX-$service:$TAG"
+    local image_name="ghcr.io/$GITHUB_USERNAME/$GITHUB_REPO-$service:$TAG"
     local context="./services/$service"
 
     if [ ! -d "$context" ]; then
@@ -62,9 +64,9 @@ build_and_push() {
 # Main execution
 main() {
     echo "========================================="
-    echo "Building and Pushing ERP Images to Docker Hub"
-    echo "Username: $DOCKER_USERNAME"
-    echo "Prefix: $DOCKER_REPO_PREFIX"
+    echo "Building and Pushing ERP Images to GHCR"
+    echo "Username: $GITHUB_USERNAME"
+    echo "Repository: $GITHUB_REPO"
     echo "Tag: $TAG"
     echo "========================================="
 
@@ -80,7 +82,7 @@ main() {
     echo "Example:"
     echo "  services:"
     echo "    user-management:"
-    echo "      image: $DOCKER_USERNAME/$DOCKER_REPO_PREFIX-user-management:$TAG"
+    echo "      image: ghcr.io/$GITHUB_USERNAME/$GITHUB_REPO-user-management:$TAG"
     echo "      # Remove 'build:' section"
 }
 
