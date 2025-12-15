@@ -49,9 +49,7 @@ services:
 
   # User Management Service
   user-management:
-    build:
-      context: ./services/user-management
-      dockerfile: Dockerfile
+    image: erp_demo-user-management:latest
     container_name: erp-user-management
     environment:
       ASPNETCORE_ENVIRONMENT: Production
@@ -74,9 +72,7 @@ services:
 
   # Inventory Service
   inventory:
-    build:
-      context: ./services/inventory
-      dockerfile: Dockerfile
+    image: erp_demo-inventory:latest
     container_name: erp-inventory
     environment:
       ASPNETCORE_ENVIRONMENT: Production
@@ -96,9 +92,7 @@ services:
 
   # Sales Service
   sales:
-    build:
-      context: ./services/sales
-      dockerfile: Dockerfile
+    image: erp_demo-sales:latest
     container_name: erp-sales
     environment:
       ASPNETCORE_ENVIRONMENT: Production
@@ -116,9 +110,7 @@ services:
 
   # Financial Service
   financial:
-    build:
-      context: ./services/financial
-      dockerfile: Dockerfile
+    image: erp_demo-financial:latest
     container_name: erp-financial
     environment:
       ASPNETCORE_ENVIRONMENT: Production
@@ -136,9 +128,7 @@ services:
 
   # Dashboard Service
   dashboard:
-    build:
-      context: ./services/dashboard
-      dockerfile: Dockerfile
+    image: erp_demo-dashboard:latest
     container_name: erp-dashboard
     environment:
       ASPNETCORE_ENVIRONMENT: Production
@@ -156,9 +146,7 @@ services:
 
   # API Gateway
   gateway:
-    build:
-      context: ./services/gateway
-      dockerfile: Dockerfile
+    image: erp_demo-gateway:latest
     container_name: erp-gateway
     environment:
       ASPNETCORE_ENVIRONMENT: Production
@@ -181,11 +169,7 @@ services:
 
   # Frontend
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        VITE_API_GATEWAY_URL: https://shopping-now.net
+    image: erp_demo-frontend:latest
     container_name: erp-frontend
     ports:
       - "8081:80"
