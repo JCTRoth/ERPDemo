@@ -15,14 +15,14 @@ echo "========================================="
 
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then 
-    echo "⚠️  This script should be run as root or with sudo"
+    echo "This script should be run as root or with sudo"
     echo "Run: sudo ./setup-https.sh"
     exit 1
 fi
 
 # Install certbot if not already installed
 if ! command -v certbot &> /dev/null; then
-    echo "📦 Installing certbot..."
+    echo " Installing certbot..."
     apt-get update
     apt-get install -y certbot
 fi
@@ -43,7 +43,7 @@ read -p "Enter choice [1-3]: " choice
 
 case $choice in
     1)
-        echo "🔒 Obtaining certificate using standalone mode..."
+        echo " Obtaining certificate using standalone mode..."
         certbot certonly --standalone \
             -d $DOMAIN \
             -d www.$DOMAIN \
@@ -52,7 +52,7 @@ case $choice in
             --email $EMAIL
         ;;
     2)
-        echo "🔒 Obtaining certificate using webroot mode..."
+        echo " Obtaining certificate using webroot mode..."
         certbot certonly --webroot \
             -w /usr/share/nginx/html \
             -d $DOMAIN \
@@ -62,10 +62,10 @@ case $choice in
             --email $EMAIL
         ;;
     3)
-        echo "⏭️  Skipping certificate generation..."
+        echo "Skipping certificate generation..."
         ;;
     *)
-        echo "❌ Invalid choice"
+        echo "Invalid choice"
         exit 1
         ;;
 esac
@@ -73,12 +73,12 @@ esac
 # Copy certificates to project directory
 if [ "$choice" != "3" ]; then
     echo ""
-    echo "📋 Copying certificates to project directory..."
+    echo " Copying certificates to project directory..."
     cp /etc/letsencrypt/live/$DOMAIN/fullchain.pem "$CERT_DIR/"
     cp /etc/letsencrypt/live/$DOMAIN/privkey.pem "$CERT_DIR/"
     chmod 644 "$CERT_DIR/fullchain.pem"
     chmod 600 "$CERT_DIR/privkey.pem"
-    echo "✅ Certificates copied to $CERT_DIR/"
+    echo "Certificates copied to $CERT_DIR/"
 fi
 
 echo ""
@@ -101,15 +101,15 @@ echo ""
 read -p "Restart containers now? [y/N]: " restart
 
 if [[ $restart =~ ^[Yy]$ ]]; then
-    echo "🔄 Restarting containers..."
+    echo " Restarting containers..."
     docker-compose down
     docker-compose up -d --build frontend
-    echo "✅ Containers restarted"
+    echo "Containers restarted"
 fi
 
 echo ""
 echo "========================================="
-echo "✅ HTTPS Setup Complete!"
+echo "HTTPS Setup Complete!"
 echo "========================================="
 echo ""
 echo "Your site should now be accessible at:"

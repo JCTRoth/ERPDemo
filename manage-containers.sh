@@ -27,45 +27,45 @@ show_menu() {
 
 # Stop all containers
 stop_containers() {
-    echo "🛑 Stopping all containers..."
+    echo " Stopping all containers..."
     docker-compose down
-    echo "✅ All containers stopped"
+    echo "All containers stopped"
 }
 
 # Remove all containers
 remove_containers() {
-    echo "🗑️  Removing all containers..."
+    echo "️Removing all containers..."
     docker-compose down -v
-    echo "✅ All containers removed"
+    echo "All containers removed"
 }
 
 # Remove containers and images
 remove_containers_and_images() {
-    echo "🗑️  Removing all containers and images..."
+    echo "️  Removing all containers and images..."
     docker-compose down --rmi all -v
-    echo "✅ All containers and images removed"
+    echo "All containers and images removed"
 }
 
 # Full cleanup
 full_cleanup() {
-    echo "⚠️  WARNING: This will remove ALL containers, images, volumes, and networks!"
+    echo "WARNING: This will remove ALL containers, images, volumes, and networks!"
     read -p "Are you sure? [y/N]: " confirm
     if [[ $confirm =~ ^[Yy]$ ]]; then
-        echo "🗑️  Performing full cleanup..."
+        echo "️Performing full cleanup..."
         docker-compose down --rmi all -v --remove-orphans
         docker system prune -af --volumes
-        echo "✅ Full cleanup complete"
+        echo "Full cleanup complete"
     else
-        echo "❌ Cleanup cancelled"
+        echo "Cleanup cancelled"
     fi
 }
 
 # Rebuild and restart all
 rebuild_all() {
-    echo "🔄 Rebuilding and restarting all containers..."
+    echo " Rebuilding and restarting all containers..."
     docker-compose down
     docker-compose up -d --build
-    echo "✅ All containers rebuilt and started"
+    echo "All containers rebuilt and started"
 }
 
 # Rebuild specific service
@@ -83,18 +83,18 @@ rebuild_service() {
     read -p "Enter service name: " service
     
     if [ -z "$service" ]; then
-        echo "❌ No service specified"
+        echo "ERROR No service specified"
         return
     fi
     
-    echo "🔄 Rebuilding $service..."
+    echo "Rebuilding $service..."
     docker-compose up -d --build --force-recreate $service
-    echo "✅ $service rebuilt and restarted"
+    echo "$service rebuilt and restarted"
 }
 
 # View status
 view_status() {
-    echo "📊 Container Status:"
+    echo " Container Status:"
     echo ""
     docker-compose ps
     echo ""
@@ -140,11 +140,11 @@ while true; do
         7) view_status ;;
         8) view_logs ;;
         9) 
-            echo "👋 Goodbye!"
+            echo "Goodbye!"
             exit 0
             ;;
         *)
-            echo "❌ Invalid choice"
+            echo "Invalid choice"
             ;;
     esac
     

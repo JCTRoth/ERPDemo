@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "🔧 Installing cert-manager..."
+echo " Installing cert-manager..."
 
 # Check if cert-manager namespace already exists
 if kubectl get namespace cert-manager >/dev/null 2>&1; then
@@ -69,9 +69,9 @@ EOF
 echo "Verifying ClusterIssuers..."
 kubectl get clusterissuer
 
-echo "✅ cert-manager installation completed successfully!"
+echo "Cert-manager installation completed successfully!"
 echo ""
-echo "📝 Next steps:"
+echo "Next steps:"
 echo "1. Update the email address in ClusterIssuers: kubectl edit clusterissuer letsencrypt-prod"
 echo "2. Ensure your DNS records point to your server's IP address"
 echo "3. Make sure ports 80 and 443 are open in your firewall"

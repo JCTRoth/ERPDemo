@@ -9,7 +9,7 @@ echo "========================================="
 echo "Fix MongoDB Authentication"
 echo "========================================="
 echo ""
-echo "⚠️  WARNING: This will:"
+echo "WARNING: This will:"
 echo "  1. Stop all containers"
 echo "  2. DELETE MongoDB data volume"
 echo "  3. Restart with new password"
@@ -27,43 +27,43 @@ ssh "$SERVER" bash << 'ENDSSH'
 cd /home/daniel/ERPDemo
 
 echo ""
-echo "📊 Current container status:"
+echo "Current container status:"
 docker-compose ps
 
 echo ""
-echo "🛑 Stopping all containers..."
+echo "Stopping all containers..."
 docker-compose down
 
 echo ""
-echo "🗑️  Removing MongoDB volume..."
+echo "️Removing MongoDB volume..."
 docker volume ls | grep mongodb
 docker volume rm erpdemo_mongodb-data 2>/dev/null || echo "Volume not found (already removed)"
 
 echo ""
-echo "🚀 Starting containers with fresh MongoDB..."
+echo "Starting containers with fresh MongoDB..."
 docker-compose up -d
 
 echo ""
-echo "⏳ Waiting 15 seconds for MongoDB to initialize..."
+echo "Waiting 15 seconds for MongoDB to initialize..."
 sleep 15
 
 echo ""
-echo "📊 New container status:"
+echo "New container status:"
 docker-compose ps
 
 echo ""
-echo "🔍 Checking MongoDB health..."
+echo "Checking MongoDB health..."
 docker-compose logs mongodb | tail -20
 
 echo ""
-echo "🔍 Checking user-management service logs..."
+echo "Checking user-management service logs..."
 docker-compose logs user-management | tail -30
 
 ENDSSH
 
 echo ""
 echo "========================================="
-echo "✅ MongoDB Reset Complete!"
+echo "MongoDB Reset Complete!"
 echo "========================================="
 echo ""
 echo "Next steps:"

@@ -3,8 +3,6 @@ services:
   mongodb:
     image: mongo:7
     container_name: erp-mongodb
-    ports:
-      - "27017:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGODB_ROOT_USERNAME:-admin}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_ROOT_PASSWORD}
@@ -18,9 +16,6 @@ services:
   kafka:
     image: confluentinc/cp-kafka:7.5.0
     container_name: erp-kafka
-    ports:
-      - "9092:9092"
-      - "9093:9093"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
@@ -44,8 +39,6 @@ services:
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: erp-kafka-ui
-    ports:
-      - "9001:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
@@ -60,8 +53,6 @@ services:
       context: ./services/user-management
       dockerfile: Dockerfile
     container_name: erp-user-management
-    ports:
-      - "5001:8080"
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       MongoDB__ConnectionString: mongodb://${MONGODB_ROOT_USERNAME:-admin}:${MONGODB_ROOT_PASSWORD}@mongodb:27017
@@ -87,8 +78,6 @@ services:
       context: ./services/inventory
       dockerfile: Dockerfile
     container_name: erp-inventory
-    ports:
-      - "5002:8080"
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       MongoDB__ConnectionString: mongodb://${MONGODB_ROOT_USERNAME:-admin}:${MONGODB_ROOT_PASSWORD}@mongodb:27017
@@ -111,8 +100,6 @@ services:
       context: ./services/sales
       dockerfile: Dockerfile
     container_name: erp-sales
-    ports:
-      - "5003:8080"
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       MongoDB__ConnectionString: mongodb://${MONGODB_ROOT_USERNAME:-admin}:${MONGODB_ROOT_PASSWORD}@mongodb:27017
@@ -133,8 +120,6 @@ services:
       context: ./services/financial
       dockerfile: Dockerfile
     container_name: erp-financial
-    ports:
-      - "5004:8080"
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       MongoDB__ConnectionString: mongodb://${MONGODB_ROOT_USERNAME:-admin}:${MONGODB_ROOT_PASSWORD}@mongodb:27017
@@ -155,8 +140,6 @@ services:
       context: ./services/dashboard
       dockerfile: Dockerfile
     container_name: erp-dashboard
-    ports:
-      - "5005:8080"
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       MongoDB__ConnectionString: mongodb://${MONGODB_ROOT_USERNAME:-admin}:${MONGODB_ROOT_PASSWORD}@mongodb:27017
@@ -177,8 +160,6 @@ services:
       context: ./services/gateway
       dockerfile: Dockerfile
     container_name: erp-gateway
-    ports:
-      - "8080:8080"
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       Jwt__Secret: ${JWT_SECRET}
@@ -217,8 +198,6 @@ services:
   prometheus:
     image: prom/prometheus:v2.48.0
     container_name: erp-prometheus
-    ports:
-      - "9090:9090"
     volumes:
       - ./infrastructure/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
@@ -233,10 +212,8 @@ services:
   grafana:
     image: grafana/grafana:10.2.0
     container_name: erp-grafana
-    ports:
-      - "3001:3000"
     environment:
-      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_ADMIN_PASSWORD:-admin}
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
       - ./infrastructure/monitoring/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
@@ -252,8 +229,6 @@ services:
   loki:
     image: grafana/loki:2.9.0
     container_name: erp-loki
-    ports:
-      - "3100:3100"
     volumes:
       - ./infrastructure/logging/loki-config.yml:/etc/loki/config.yaml:ro
       - loki-data:/loki

@@ -19,7 +19,7 @@ echo ""
 
 # Check if nginx config exists
 if [ -f "$NGINX_AVAILABLE/shopping-now.net" ]; then
-    echo "⚠️  Configuration already exists at:"
+    echo "Configuration already exists at:"
     echo "   $NGINX_AVAILABLE/shopping-now.net"
     echo ""
     read -p "Overwrite? (y/N): " -n 1 -r
@@ -31,18 +31,18 @@ if [ -f "$NGINX_AVAILABLE/shopping-now.net" ]; then
 fi
 
 # Copy the configuration file
-echo "📝 Copying nginx configuration..."
+echo " Copying nginx configuration..."
 if [ -f "$CONFIG_DIR/shopping-now.net.conf" ]; then
     sudo cp "$CONFIG_DIR/shopping-now.net.conf" "$NGINX_AVAILABLE/shopping-now.net"
-    echo "✅ Configuration file created at: $NGINX_AVAILABLE/shopping-now.net"
+    echo "Configuration file created at: $NGINX_AVAILABLE/shopping-now.net"
 else
-    echo "❌ Source config not found: $CONFIG_DIR/shopping-now.net.conf"
+    echo "Source config not found: $CONFIG_DIR/shopping-now.net.conf"
     exit 1
 fi
 
 echo ""
 echo "========================================="
-echo "📋 Manual Steps Required"
+echo " Manual Steps Required"
 echo "========================================="
 echo ""
 echo "The configuration file has been created but NOT activated."
